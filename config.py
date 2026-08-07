@@ -3,11 +3,11 @@ from pathlib import Path
 
 APP_NAME = "SGS Visual"
 SYSTEM_ID = "SGS-DRN-001"
-DEVELOPER = "M. Yogesh Naidu"
+DEVELOPER = "M. Yogesh Naidu & Krishna Dev"
 ORGANIZATION = "NY Technologies"
 MODE = "Night Vision AI Mode"
-LOCATION_NAME = "Kalyan Nagar (HRBR Layout)"
-GPS_COORDINATES = "13.0313° N, 77.6351° E"
+LOCATION_NAME = "KVDRDO BLR"
+GPS_COORDINATES = "12.9916° N, 77.6680° E"
 
 # Fill these locally. Do not commit real secrets.
 NVIDIA_API_KEY = ""
