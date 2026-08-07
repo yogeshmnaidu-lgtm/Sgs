@@ -1,4 +1,11 @@
-"""SGS module placeholder for hardware/API integration."""
+"""Startup splash text for SGS."""
+from __future__ import annotations
 
-def status():
-    return "ready"
+SPLASH_LINES = [
+    "SMART GUARDIAN SYSTEM 2.0",
+    "AI emergency monitoring online",
+    "Camera • Sensors • Voice • Telegram • Evidence",
+]
+
+def text() -> str:
+    return "\n".join(SPLASH_LINES)
