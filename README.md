@@ -1,6 +1,6 @@
 # Smart Guardian System (SGS) 2.0
 
-SGS Visual is a Raspberry Pi-ready emergency response dashboard for **Smart Guardian System**. It is designed around a futuristic robotic UI with a live camera visual, AI detection overlays, sensor status, weather, news, live-map panel, command center, activity log, chat assistant, air-quality index, and developer branding for **M. Yogesh Naidu / NY Technologies**.
+SGS Visual is a Raspberry Pi-ready emergency response dashboard for **Smart Guardian System**. It is designed around a futuristic robotic UI with a live camera visual, AI detection overlays, sensor status, weather, news, live-map panel, command center, activity log, chat assistant, air-quality index, colour sensor readings, touch-triggered vitals, startup voice announcement, and developer branding for **M. Yogesh Naidu / NY Technologies**.
 
 ## Run
 
@@ -41,6 +41,8 @@ The app uses safe desktop fallbacks, so it can open without Raspberry Pi GPIO ha
 | IR data | GPIO 17 |
 | MPR121 SCL | GPIO 23 |
 | MPR121 SDA | GPIO 24 |
+| Colour sensor OUT | GPIO 15 |
+| Touch sensor SIG | GPIO 14 |
 
 ## API keys and secrets
 

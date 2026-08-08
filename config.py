@@ -34,6 +34,8 @@ GPIO_PINS = {
     "ir_data": 17,
     "mpr121_scl": 23,
     "mpr121_sda": 24,
+    "color_sensor_out": 15,
+    "touch_sensor_sig": 14,
 }
 
 COMMANDS = [
@@ -44,5 +46,5 @@ COMMANDS = [
     "Allergic reaction", "Earthquake", "Tsunami", "Chemical spill",
     "Bomb threat", "Radiation leak", "Kidnapping", "Robbery", "Assault",
     "Weather", "News", "Help", "Shutdown", "Restart", "Diagnostics",
-    "Sensor status", "Admin mode",
+    "Sensor status", "Admin mode", "Touch scan", "Color scan", "Vitals",
 ]
