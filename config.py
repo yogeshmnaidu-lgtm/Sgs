@@ -8,6 +8,8 @@ ORGANIZATION = "NY Technologies"
 MODE = "Night Vision AI Mode"
 LOCATION_NAME = "KVDRDO BLR"
 GPS_COORDINATES = "12.9916° N, 77.6680° E"
+CAMERA_STREAM_URL = "http://192.168.0.100:4747/video"
+CAMERA_SOURCE = 0
 
 # Fill these locally. Do not commit real secrets.
 NVIDIA_API_KEY = ""

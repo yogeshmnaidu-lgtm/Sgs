@@ -28,6 +28,23 @@ The app uses safe desktop fallbacks, so it can open without Raspberry Pi GPIO ha
 | `database.py` / `logger.py` | SQLite event/evidence tables and activity logging |
 | `weather.py`, `news.py`, `maps.py` | Offline providers ready to be replaced with live APIs |
 
+
+## AirDroid phone camera feed
+
+SGS now defaults to the AirDroid/IP webcam stream at:
+
+```text
+http://192.168.0.100:4747/video
+```
+
+If OpenCV can read that stream directly, the dashboard shows it inside the central camera visual. If your system needs a Linux webcam bridge, run this before starting SGS:
+
+```bash
+sudo ffmpeg -i http://192.168.0.100:4747/video -f v4l2 -pix_fmt yuv420p /dev/video0
+```
+
+The app still falls back to `/dev/video0`/camera index `0` if the AirDroid stream cannot be opened, and it displays the neon simulation if no frame is available.
+
 ## Hardware wiring
 
 | Module | Pin |

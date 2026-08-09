@@ -1,10 +1,12 @@
 """Neon SGS Drone Visual dashboard rendered on a responsive Tkinter canvas."""
 from __future__ import annotations
+import importlib.util
 import math
 import tkinter as tk
 from datetime import datetime
 
 from ai import SGSAssistant
+from camera import CameraService
 from commands import all_commands, response_for
 from config import APP_NAME, DEVELOPER, GPS_COORDINATES, LOCATION_NAME, MODE, ORGANIZATION, SYSTEM_ID
 from detection import DetectionEngine
@@ -84,6 +86,9 @@ class SGSDashboard(tk.Tk):
 
         self.sensors = SensorManager()
         self.detector = DetectionEngine()
+        self.camera_service = CameraService()
+        self.camera_online = self.camera_service.start()
+        self.latest_frame = None
         self.weather = WeatherService()
         self.news = NewsService()
         self.maps = MapService()
@@ -104,7 +109,9 @@ class SGSDashboard(tk.Tk):
     def _tick(self):
         self.snapshot = self.sensors.read()
         self.weather_report = self.weather.current()
-        self.detections = self.detector.detect()
+        self.latest_frame = self.camera_service.read()
+        self.camera_online = self.latest_frame is not None or self.camera_online
+        self.detections = self.detector.detect(self.latest_frame)
         self.counts = self.detector.counts(self.detections)
         self._redraw()
         self.after(1000, self._tick)
@@ -162,40 +169,12 @@ class SGSDashboard(tk.Tk):
         c = self.canvas
         x, y, w, h = 205, 105, 920, 545
         c.rect_scaled(x, y, x + w, y + h, fill="#05080c", outline=CYAN, width=2)
-        # bright night-road illustration so the camera area is visible even without a real camera
-        for i in range(16):
-            shade = 10 + i * 4
-            c.rect_scaled(x + 2, y + i * h / 16, x + w - 2, y + (i + 1) * h / 16, fill=f"#{shade:02x}{shade+5:02x}{shade+12:02x}", outline="")
-        c.create_oval(c.sx(580), c.sy(214), c.sx(640), c.sy(274), fill="#fff4b0", outline="#ffffff")
-        for r in range(45, 190, 24):
-            c.create_oval(c.sx(610-r), c.sy(244-r), c.sx(610+r), c.sy(244+r), outline="#fff4b0", width=1)
-        # trees/buildings
-        for bx in [220, 260, 300, 1010, 1060]:
-            c.rect_scaled(bx, 145, bx + 34, 650, fill="#061018", outline="#102b36")
-            for wy in range(165, 610, 42):
-                c.rect_scaled(bx + 7, wy, bx + 26, wy + 14, fill="#ffd45a", outline="")
-        for tx in [335, 380, 880, 930, 980]:
-            c.line_scaled(tx, 255, tx - 38, 650, fill="#2b170f", width=7)
-            for k in range(5):
-                c.create_oval(c.sx(tx-85+k*18), c.sy(125+k*12), c.sx(tx+75+k*12), c.sy(310+k*6), fill="#082616", outline="#103d24")
-        # road and lane lights
-        c.poly_scaled([(385, 650), (545, 340), (780, 340), (1040, 650)], fill="#111821", outline="#23394d")
-        c.line_scaled(657, 348, 681, 650, fill=YELLOW, width=2)
-        c.line_scaled(704, 350, 760, 650, fill=YELLOW, width=2)
-        for ly in range(380, 640, 52):
-            c.line_scaled(682, ly, 698, ly + 24, fill="#f7e36b", width=3)
-        # vehicles and humans silhouettes
-        for vx, vy, color in [(455, 520, BLUE), (690, 455, BLUE), (820, 515, BLUE), (935, 420, BLUE)]:
-            c.rect_scaled(vx, vy, vx+95, vy+55, fill="#111722", outline=color, width=2)
-            c.create_oval(c.sx(vx+13), c.sy(vy+44), c.sx(vx+28), c.sy(vy+59), fill="#050505", outline="")
-            c.create_oval(c.sx(vx+67), c.sy(vy+44), c.sx(vx+82), c.sy(vy+59), fill="#050505", outline="")
-            c.rect_scaled(vx+8, vy+8, vx+87, vy+26, fill="#172d3f", outline="")
-        for hx, hy in [(350, 465), (580, 390), (995, 492)]:
-            c.create_oval(c.sx(hx), c.sy(hy), c.sx(hx+18), c.sy(hy+18), fill=GREEN, outline="")
-            c.line_scaled(hx+9, hy+18, hx+9, hy+68, fill=GREEN, width=3)
-            c.line_scaled(hx-8, hy+34, hx+26, hy+34, fill=GREEN, width=2)
-            c.line_scaled(hx+9, hy+68, hx-6, hy+100, fill=GREEN, width=2)
-            c.line_scaled(hx+9, hy+68, hx+25, hy+100, fill=GREEN, width=2)
+        live_frame = self._draw_live_phone_frame(x, y, w, h)
+        if live_frame:
+            c.text_scaled(x + 12, y + 12, "LIVE AIRDROID PHONE FEED", 10, GREEN, "bold")
+        else:
+            c.text_scaled(x + 12, y + 12, "AIRDROID FEED WAITING - USING SGS SIMULATION", 10, YELLOW, "bold")
+            self._draw_simulated_camera_scene(x, y, w, h)
         for d in self.detections:
             bx = x + d.x * w
             by = y + d.y * h
@@ -210,11 +189,55 @@ class SGSDashboard(tk.Tk):
             c.rect_scaled(ix, iy, ix + info_w, iy + info_h, fill="#031018", outline=d.color, width=1.3)
             c.text_scaled(ix + 7, iy + 6, "\n".join(d.details), 7, WHITE)
 
+    def _draw_simulated_camera_scene(self, x, y, w, h):
+        c = self.canvas
+        for i in range(16):
+            shade = 10 + i * 4
+            c.rect_scaled(x + 2, y + i * h / 16, x + w - 2, y + (i + 1) * h / 16, fill=f"#{shade:02x}{shade+5:02x}{shade+12:02x}", outline="")
+        c.create_oval(c.sx(580), c.sy(214), c.sx(640), c.sy(274), fill="#fff4b0", outline="#ffffff")
+        for r in range(45, 190, 24):
+            c.create_oval(c.sx(610-r), c.sy(244-r), c.sx(610+r), c.sy(244+r), outline="#fff4b0", width=1)
+        for bx in [220, 260, 300, 1010, 1060]:
+            c.rect_scaled(bx, 145, bx + 34, 650, fill="#061018", outline="#102b36")
+            for wy in range(165, 610, 42):
+                c.rect_scaled(bx + 7, wy, bx + 26, wy + 14, fill="#ffd45a", outline="")
+        for tx in [335, 380, 880, 930, 980]:
+            c.line_scaled(tx, 255, tx - 38, 650, fill="#2b170f", width=7)
+            for k in range(5):
+                c.create_oval(c.sx(tx-85+k*18), c.sy(125+k*12), c.sx(tx+75+k*12), c.sy(310+k*6), fill="#082616", outline="#103d24")
+        c.poly_scaled([(385, 650), (545, 340), (780, 340), (1040, 650)], fill="#111821", outline="#23394d")
+        c.line_scaled(657, 348, 681, 650, fill=YELLOW, width=2)
+        c.line_scaled(704, 350, 760, 650, fill=YELLOW, width=2)
+        for ly in range(380, 640, 52):
+            c.line_scaled(682, ly, 698, ly + 24, fill="#f7e36b", width=3)
+        for vx, vy, color in [(455, 520, BLUE), (690, 455, BLUE), (820, 515, BLUE), (935, 420, BLUE)]:
+            c.rect_scaled(vx, vy, vx+95, vy+55, fill="#111722", outline=color, width=2)
+            c.create_oval(c.sx(vx+13), c.sy(vy+44), c.sx(vx+28), c.sy(vy+59), fill="#050505", outline="")
+            c.create_oval(c.sx(vx+67), c.sy(vy+44), c.sx(vx+82), c.sy(vy+59), fill="#050505", outline="")
+            c.rect_scaled(vx+8, vy+8, vx+87, vy+26, fill="#172d3f", outline="")
+        for hx, hy in [(350, 465), (580, 390), (995, 492)]:
+            c.create_oval(c.sx(hx), c.sy(hy), c.sx(hx+18), c.sy(hy+18), fill=GREEN, outline="")
+            c.line_scaled(hx+9, hy+18, hx+9, hy+68, fill=GREEN, width=3)
+            c.line_scaled(hx-8, hy+34, hx+26, hy+34, fill=GREEN, width=2)
+            c.line_scaled(hx+9, hy+68, hx-6, hy+100, fill=GREEN, width=2)
+            c.line_scaled(hx+9, hy+68, hx+25, hy+100, fill=GREEN, width=2)
+
+    def _draw_live_phone_frame(self, x, y, w, h) -> bool:
+        if self.latest_frame is None or importlib.util.find_spec("PIL") is None:
+            return False
+        from PIL import Image, ImageTk
+        cv2 = self.camera_service._cv2()
+        rgb = cv2.cvtColor(self.latest_frame, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(rgb).resize((int(w * self.canvas.scale_factor), int(h * self.canvas.scale_factor)))
+        self._phone_photo = ImageTk.PhotoImage(image)
+        self.canvas.create_image(self.canvas.sx(x), self.canvas.sy(y), image=self._phone_photo, anchor="nw")
+        return True
+
     def _draw_left_stack(self):
         s = self.snapshot
         w = self.weather_report
         self._panel(10, 100, 185, 182, "SYSTEM STATUS")
-        self._kv(26, 137, [("CAMERA", "OK"), ("GPS", "OK"), ("AI ENGINE", "ACTIVE"), ("SENSORS", "ACTIVE"), ("BATTERY", s.battery), ("STORAGE", s.storage), ("WIFI", s.wifi), ("TELEGRAM", s.telegram)])
+        self._kv(26, 137, [("CAMERA", "AIRDROID" if self.latest_frame is not None else "WAITING"), ("GPS", "OK"), ("AI ENGINE", "ACTIVE"), ("SENSORS", "ACTIVE"), ("BATTERY", s.battery), ("STORAGE", s.storage), ("WIFI", s.wifi), ("TELEGRAM", s.telegram)])
         self._panel(10, 292, 185, 160, "SENSOR STATUS")
         self._kv(26, 327, [("PIR MOTION", s.pir), ("IR SENSOR", s.ir), ("MQ135 GAS", s.gas), ("DHT22 TEMP", s.humidity), ("ULTRASONIC", s.ultrasonic), ("COLOR OUT", s.color_sensor), ("TOUCH SIG", s.touch_sensor)])
         self._panel(10, 462, 185, 123, "WEATHER")
@@ -236,7 +259,8 @@ class SGSDashboard(tk.Tk):
         self.canvas.text_scaled(1168, 456, s.air.label.upper(), 9, GREEN, "bold")
         self.canvas.text_scaled(1235, 406, f"PM2.5 : {s.air.pm25}\nPM10  : {s.air.pm10}\nCO    : 0.4 ppm\nNO2   : 12 ppb\nO3    : 35 ppb", 8, WHITE)
         self._panel(1140, 512, 215, 128, "SYSTEM TELEMETRY")
-        self.canvas.text_scaled(1157, 548, f"DRONE ID : {SYSTEM_ID}\nALTITUDE : 18.6 m\nSPEED    : 12.4 m/s\nGPS      : {GPS_COORDINATES}\nMODE     : {MODE}\nBATTERY  : {s.battery}\nSIGNAL   : STRONG", 8, WHITE)
+        cam_state = "AIRDROID LIVE" if self.latest_frame is not None else "WAITING"
+        self.canvas.text_scaled(1157, 548, f"DRONE ID : {SYSTEM_ID}\nALTITUDE : 18.6 m\nSPEED    : 12.4 m/s\nGPS      : {GPS_COORDINATES}\nMODE     : {MODE}\nCAMERA   : {cam_state}\nBATTERY  : {s.battery}\nSIGNAL   : STRONG", 8, WHITE)
 
     def _draw_bottom_stack(self):
         self._panel(10, 650, 300, 108, "COMMAND CENTER")
