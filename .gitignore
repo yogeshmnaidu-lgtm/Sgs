@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.env
+sgs.log
+sgs.sqlite3
+evidence/*
+!evidence/.gitkeep
+assets/*
+!assets/.gitkeep
+models/*
+!models/.gitkeep
